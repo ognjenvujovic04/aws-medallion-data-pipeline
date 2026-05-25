@@ -7,3 +7,8 @@ __pycache__
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Bitcoin tweets bronze raw dump (keep README + manifest.json in data/bitcoin-tweets/)
+data/bitcoin-tweets/*.csv
+data/bitcoin-tweets/*.zip
+data/bitcoin-tweets/*.ZIP

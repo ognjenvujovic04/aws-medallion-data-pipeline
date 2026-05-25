@@ -1,0 +1,9 @@
+{
+  "dataset": "bitcoin-tweets",
+  "source": "Kaggle",
+  "kaggle_slug": "kaushiksuresh147/bitcoin-tweets",
+  "kaggle_url": "https://www.kaggle.com/datasets/kaushiksuresh147/bitcoin-tweets",
+  "expected_files": ["bitcoin_tweets.csv"],
+  "bronze_s3_prefix": "bronze/twitter/dataset=bitcoin-tweets/",
+  "notes": "Raw CSV only at bronze. Do not commit the CSV to git."
+}
