@@ -9,7 +9,7 @@ from aws_cdk import (
 from constructs import Construct
 
 AWS_SDK_PANDAS_LAYER_ACCOUNT = "336392948345"
-AWS_SDK_PANDAS_LAYER_VERSION = 30
+AWS_SDK_PANDAS_LAYER_VERSION = 29
 
 
 class NormalizationStack(Stack):
