@@ -44,7 +44,10 @@ class NormalizationStack(Stack):
             code=lambda_.Code.from_asset(str(silver_lambdas)),
             layers=[pandas_layer],
             timeout=Duration.minutes(5),
-            memory_size=1024,
+            # awswrangler layer (~400MB at import) + 11k+ hits in pandas spikes
+            # past 1GB and gets OOM-killed (Runtime.ExitError). 2048MB is still
+            # trivially within free tier: ~30 GB-sec/day << 400,000 GB-sec/month.
+            memory_size=2048,
             environment={
                 "DATA_LAKE_BUCKET": data_lake.bucket_name,
                 "BRONZE_PREFIX": bronze_prefix,

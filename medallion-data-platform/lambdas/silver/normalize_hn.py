@@ -46,11 +46,8 @@ def read_bronze_hits(key):
         print(f"no bronze object at s3://{S3_BUCKET}/{key}")
         return []
     body = obj["Body"].read().decode("utf-8")
-    hits = []
-    for line in body.splitlines():
-        line = line.strip()
-        if line:
-            hits.append(json.loads(line))
+    hits = [json.loads(line) for line in body.splitlines() if line.strip()]
+    del body
     return hits
 
 
@@ -90,10 +87,9 @@ def build_post(hit):
 
 def build_posts_frame(posts):
     df = pd.DataFrame(posts, columns=utils.POSTS_COLUMNS)
-    ts = pd.to_datetime(df["created_at"], utc=True, errors="coerce")
-    df["year"] = ts.dt.strftime("%Y")
-    df["month"] = ts.dt.strftime("%m")
-    df["day"] = ts.dt.strftime("%d")
+    df["year"] = df["created_at"].str.slice(0, 4)
+    df["month"] = df["created_at"].str.slice(5, 7)
+    df["day"] = df["created_at"].str.slice(8, 10)
     df["score"] = df["score"].astype("Int64")
     df = df[df["year"].notna()]
     df = df.drop_duplicates(subset=["post_id"], keep="last")
@@ -159,18 +155,31 @@ def handler(event, context):
     if not hits:
         return {"status": "empty", "date": target_date.isoformat(), "posts": 0, "users": 0}
 
-    posts_df = build_posts_frame([build_post(h) for h in hits])
+    raw_hits = len(hits)
+    print(f"hits={raw_hits}", flush=True)
     users_df = build_users_frame(hits)
+    print(f"users_df rows={len(users_df)}", flush=True)
 
-    write_dataset = utils.write_dataset
-    write_dataset(posts_df, utils.posts_path(S3_BUCKET, SILVER_PREFIX),
-                  partition_cols=["year", "month", "day"])
+    posts_records = [build_post(h) for h in hits]
+    del hits
+    posts_df = build_posts_frame(posts_records)
+    del posts_records
+    print(f"posts_df rows={len(posts_df)} dtypes={posts_df.dtypes.to_dict()}", flush=True)
+
+    print("writing posts parquet...", flush=True)
+    utils.write_dataset(
+        posts_df, utils.posts_path(S3_BUCKET, SILVER_PREFIX),
+        partition_cols=["year", "month", "day"],
+    )
+    print("posts written; upserting users...", flush=True)
+
     merged_users = upsert_users(users_df)
+    print("users upserted", flush=True)
 
     result = {
         "status": "ok",
         "date": target_date.isoformat(),
-        "raw_hits": len(hits),
+        "raw_hits": raw_hits,
         "posts": int(len(posts_df)),
         "users_today": int(len(users_df)),
         "users_total": int(len(merged_users)),
