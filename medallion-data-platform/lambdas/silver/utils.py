@@ -74,6 +74,11 @@ def normalize_iso_utc(value):
 def make_user_id(platform, username):
     return str(uuid.uuid5(USER_ID_NAMESPACE, f"{platform}:{username}"))
 
+
+def make_post_id(platform, *parts):
+    key = ":".join([platform, *(str(p) for p in parts)])
+    return str(uuid.uuid5(USER_ID_NAMESPACE, key))
+
 def silver_root(bucket, silver_prefix):
     return f"s3://{bucket}/{silver_prefix.strip('/')}"
 
@@ -106,3 +111,31 @@ def read_dataset(path):
         return wr.s3.read_parquet(path=path, dataset=True)
     except (wr.exceptions.NoFilesFound, OSError):
         return pd.DataFrame()
+
+
+def upsert_users(new_users, platform, bucket, silver_prefix):
+    """Merge new users for one platform into the silver users dataset.
+
+    Reads the existing platform partition, concatenates the new rows, keeps the
+    earliest row per username, and rewrites the platform partition. Returns the
+    merged frame (platform-scoped).
+    """
+    path = users_path(bucket, silver_prefix)
+    existing = read_dataset(path)
+    if not existing.empty:
+        existing = existing[existing.get("platform") == platform]
+        existing = existing.drop(columns=["platform"], errors="ignore")
+
+    combined = pd.concat([existing, new_users], ignore_index=True)
+    if combined.empty:
+        return combined
+
+    combined = combined.sort_values("created_at").drop_duplicates(
+        subset=["username"], keep="first"
+    )
+    combined["platform"] = platform
+    combined["karma_score"] = combined["karma_score"].astype("Int64")
+    combined["followers_count"] = combined["followers_count"].astype("Int64")
+    combined["is_verified"] = combined["is_verified"].astype("boolean")
+    write_dataset(combined, path, partition_cols=["platform"])
+    return combined

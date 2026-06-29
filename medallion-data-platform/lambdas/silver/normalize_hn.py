@@ -124,28 +124,6 @@ def build_users_frame(hits):
     return df
 
 
-def upsert_users(new_users):
-    path = utils.users_path(S3_BUCKET, SILVER_PREFIX)
-    existing = utils.read_dataset(path)
-    if not existing.empty:
-        existing = existing[existing.get("platform") == PLATFORM]
-        existing = existing.drop(columns=["platform"], errors="ignore")
-
-    combined = pd.concat([existing, new_users], ignore_index=True)
-    if combined.empty:
-        return combined
-
-    combined = combined.sort_values("created_at").drop_duplicates(
-        subset=["username"], keep="first"
-    )
-    combined["platform"] = PLATFORM
-    combined["karma_score"] = combined["karma_score"].astype("Int64")
-    combined["followers_count"] = combined["followers_count"].astype("Int64")
-    combined["is_verified"] = combined["is_verified"].astype("boolean")
-    utils.write_dataset(combined, path, partition_cols=["platform"])
-    return combined
-
-
 def handler(event, context):
     target_date = resolve_target_date(event)
     key = bronze_key(target_date)
@@ -173,7 +151,7 @@ def handler(event, context):
     )
     print("posts written; upserting users...", flush=True)
 
-    merged_users = upsert_users(users_df)
+    merged_users = utils.upsert_users(users_df, PLATFORM, S3_BUCKET, SILVER_PREFIX)
     print("users upserted", flush=True)
 
     result = {
