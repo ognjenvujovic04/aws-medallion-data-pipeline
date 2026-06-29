@@ -20,6 +20,7 @@ class NormalizationStack(Stack):
         *,
         data_lake: s3.IBucket,
         bronze_prefix: str = "bronze/hackernews",
+        twitter_prefix: str = "bronze/twitter",
         silver_prefix: str = "silver",
         **kwargs,
     ) -> None:
@@ -58,4 +59,26 @@ class NormalizationStack(Stack):
         data_lake.grant_read(hn_normalize_fn, f"{bronze_prefix.strip('/')}/*")
         data_lake.grant_read_write(hn_normalize_fn, f"{silver_prefix.strip('/')}/*")
 
+        twitter_normalize_fn = lambda_.Function(
+            self,
+            "TwitterNormalize",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="normalize_twitter.handler",
+            code=lambda_.Code.from_asset(str(silver_lambdas)),
+            layers=[pandas_layer],
+            # Twitter dataset can be large; stream the CSV in chunks. 15 min /
+            # 2048MB stays trivially within free tier for a one-time dataset.
+            timeout=Duration.minutes(15),
+            memory_size=2048,
+            environment={
+                "DATA_LAKE_BUCKET": data_lake.bucket_name,
+                "TWITTER_PREFIX": twitter_prefix,
+                "SILVER_PREFIX": silver_prefix,
+            },
+        )
+
+        data_lake.grant_read(twitter_normalize_fn, f"{twitter_prefix.strip('/')}/*")
+        data_lake.grant_read_write(twitter_normalize_fn, f"{silver_prefix.strip('/')}/*")
+
         self.hn_normalize_fn = hn_normalize_fn
+        self.twitter_normalize_fn = twitter_normalize_fn
