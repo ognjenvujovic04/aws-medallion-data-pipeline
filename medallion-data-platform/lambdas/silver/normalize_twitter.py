@@ -1,5 +1,6 @@
 import json
 import os
+from collections import Counter
 
 import awswrangler as wr
 import pandas as pd
@@ -12,8 +13,10 @@ SILVER_PREFIX = os.environ.get("SILVER_PREFIX", "silver")
 
 PLATFORM = utils.PLATFORM_X
 
-# The dataset can be large; read it in chunks so the raw CSV is never fully
-# materialized in memory -- we only keep the slim mapped records.
+# The dataset can be ~1 GB; read it in chunks AND write each chunk's posts
+# straight to S3 so neither the raw CSV nor the mapped records are ever fully
+# materialized in memory. Only the users accumulator (bounded by unique users)
+# is kept for the whole run.
 CHUNK_SIZE = 100_000
 
 TRUE_STRINGS = {"true", "1", "yes", "t", "y"}
@@ -80,6 +83,28 @@ def build_posts_frame(posts):
     return df
 
 
+def write_chunk_posts(posts_df, dest, seen_partitions):
+    """Append one chunk's posts into the date-partitioned posts dataset.
+
+    The dataset is partitioned by year/month/day only (per the spec), so a
+    single day can span several chunks. To stay idempotent across re-runs while
+    not losing rows across chunks, the FIRST time a run touches a given day
+    partition we overwrite it (dropping any stale data from a previous run), and
+    every later touch of that same partition in the run appends. ``seen_partitions``
+    is the per-run set of (year, month, day) keys already written.
+    """
+    for (year, month, day), group in posts_df.groupby(
+        ["year", "month", "day"], sort=False
+    ):
+        key = (year, month, day)
+        mode = "append" if key in seen_partitions else "overwrite_partitions"
+        utils.write_dataset(
+            group, dest, partition_cols=["year", "month", "day"], mode=mode
+        )
+        seen_partitions.add(key)
+    return len(posts_df)
+
+
 def update_users(acc, row):
     username = _clean(row.get("user_name"))
     if not username:
@@ -118,40 +143,47 @@ def build_users_frame(acc):
 
 def handler(event, context):
     path = twitter_source_path()
+    posts_dest = utils.posts_path(S3_BUCKET, SILVER_PREFIX)
     print(f"X silver normalize: src={path}")
 
-    posts_records = []
     users_acc = {}
+    post_types = Counter()
+    seen_partitions = set()
     total_rows = 0
+    posts_written = 0
     chunks = 0
 
     try:
-        for chunk in wr.s3.read_csv(path=path, dataset=False, chunksize=CHUNK_SIZE):
+        for chunk in wr.s3.read_csv(
+            path=path, dataset=False, chunksize=CHUNK_SIZE, on_bad_lines="skip"
+        ):
             chunks += 1
             records = chunk.to_dict("records")
             total_rows += len(records)
+
+            posts_df = build_posts_frame([build_post(row) for row in records])
+            if not posts_df.empty:
+                posts_written += write_chunk_posts(
+                    posts_df, posts_dest, seen_partitions
+                )
+                post_types.update(posts_df["post_type"].value_counts().to_dict())
+
             for row in records:
-                posts_records.append(build_post(row))
                 update_users(users_acc, row)
-            print(f"chunk={chunks} rows={len(records)} cum_rows={total_rows}", flush=True)
+
+            print(
+                f"chunk={chunks} rows={len(records)} cum_rows={total_rows} "
+                f"posts_written={posts_written}",
+                flush=True,
+            )
     except wr.exceptions.NoFilesFound:
         print(f"no twitter CSV at {path}")
         return {"status": "empty", "posts": 0, "users": 0}
 
-    if not posts_records:
+    if total_rows == 0:
         return {"status": "empty", "posts": 0, "users": 0}
 
-    posts_df = build_posts_frame(posts_records)
-    del posts_records
-    print(f"posts_df rows={len(posts_df)} dtypes={posts_df.dtypes.to_dict()}", flush=True)
-
-    print("writing posts parquet...", flush=True)
-    utils.write_dataset(
-        posts_df, utils.posts_path(S3_BUCKET, SILVER_PREFIX),
-        partition_cols=["year", "month", "day"],
-    )
     print("posts written; upserting users...", flush=True)
-
     users_df = build_users_frame(users_acc)
     print(f"users_df rows={len(users_df)}", flush=True)
     merged_users = utils.upsert_users(users_df, PLATFORM, S3_BUCKET, SILVER_PREFIX)
@@ -160,10 +192,10 @@ def handler(event, context):
     result = {
         "status": "ok",
         "rows": total_rows,
-        "posts": int(len(posts_df)),
+        "posts": posts_written,
         "users_today": int(len(users_df)),
         "users_total": int(len(merged_users)),
-        "post_types": posts_df["post_type"].value_counts().to_dict(),
+        "post_types": dict(post_types),
     }
     print(json.dumps(result, default=str))
     return result

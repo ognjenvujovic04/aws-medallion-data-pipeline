@@ -90,7 +90,7 @@ def users_path(bucket, silver_prefix):
 def posts_path(bucket, silver_prefix):
     return f"{silver_root(bucket, silver_prefix)}/posts/"
 
-def write_dataset(df, path, partition_cols):
+def write_dataset(df, path, partition_cols, mode="overwrite_partitions"):
     if df.empty:
         return {"paths": [], "partitions_values": {}}
     return wr.s3.to_parquet(
@@ -98,7 +98,7 @@ def write_dataset(df, path, partition_cols):
         path=path,
         dataset=True,
         partition_cols=partition_cols,
-        mode="overwrite_partitions",
+        mode=mode,
         compression="snappy",
         index=False,
     )
