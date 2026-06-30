@@ -6,6 +6,12 @@ Source for this project: [kaushiksuresh147/bitcoin-tweets](https://www.kaggle.co
 
 
 
+> **Note:** The full Kaggle dataset is larger (~2 GB). For this project only the
+> first **2.5M rows** were taken - about **1 GB** of CSV. Sizes below reflect that
+> trimmed subset, not the original download.
+
+
+
 Place the extracted file here (default name: `bitcoin_tweets.csv`). Upload to the Data Lake with `aws s3 cp`.
 
 
@@ -59,5 +65,5 @@ aws s3 ls s3://<bucket>/bronze/twitter/dataset=bitcoin-tweets/ --recursive --hum
 
 
 
-Expect `bitcoin_tweets.csv` at ~2 GB.
+Expect `bitcoin_tweets.csv` at ~1 GB (2.5M rows).
 

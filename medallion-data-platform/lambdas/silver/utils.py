@@ -65,7 +65,10 @@ def normalize_iso_utc(value):
     try:
         dt = datetime.fromisoformat(text)
     except ValueError:
-        return text
+        # Unparseable value (e.g. a misaligned CSV row where this field actually
+        # holds a hashtag list or follower count). Drop it rather than letting
+        # garbage flow into created_at / date partitions.
+        return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -73,6 +76,11 @@ def normalize_iso_utc(value):
 
 def make_user_id(platform, username):
     return str(uuid.uuid5(USER_ID_NAMESPACE, f"{platform}:{username}"))
+
+
+def make_post_id(platform, *parts):
+    key = ":".join([platform, *(str(p) for p in parts)])
+    return str(uuid.uuid5(USER_ID_NAMESPACE, key))
 
 def silver_root(bucket, silver_prefix):
     return f"s3://{bucket}/{silver_prefix.strip('/')}"
@@ -85,7 +93,7 @@ def users_path(bucket, silver_prefix):
 def posts_path(bucket, silver_prefix):
     return f"{silver_root(bucket, silver_prefix)}/posts/"
 
-def write_dataset(df, path, partition_cols):
+def write_dataset(df, path, partition_cols, mode="overwrite_partitions"):
     if df.empty:
         return {"paths": [], "partitions_values": {}}
     return wr.s3.to_parquet(
@@ -93,7 +101,7 @@ def write_dataset(df, path, partition_cols):
         path=path,
         dataset=True,
         partition_cols=partition_cols,
-        mode="overwrite_partitions",
+        mode=mode,
         compression="snappy",
         index=False,
     )
@@ -106,3 +114,31 @@ def read_dataset(path):
         return wr.s3.read_parquet(path=path, dataset=True)
     except (wr.exceptions.NoFilesFound, OSError):
         return pd.DataFrame()
+
+
+def upsert_users(new_users, platform, bucket, silver_prefix):
+    """Merge new users for one platform into the silver users dataset.
+
+    Reads the existing platform partition, concatenates the new rows, keeps the
+    earliest row per username, and rewrites the platform partition. Returns the
+    merged frame (platform-scoped).
+    """
+    path = users_path(bucket, silver_prefix)
+    existing = read_dataset(path)
+    if not existing.empty:
+        existing = existing[existing.get("platform") == platform]
+        existing = existing.drop(columns=["platform"], errors="ignore")
+
+    combined = pd.concat([existing, new_users], ignore_index=True)
+    if combined.empty:
+        return combined
+
+    combined = combined.sort_values("created_at").drop_duplicates(
+        subset=["username"], keep="first"
+    )
+    combined["platform"] = platform
+    combined["karma_score"] = combined["karma_score"].astype("Int64")
+    combined["followers_count"] = combined["followers_count"].astype("Int64")
+    combined["is_verified"] = combined["is_verified"].astype("boolean")
+    write_dataset(combined, path, partition_cols=["platform"])
+    return combined
