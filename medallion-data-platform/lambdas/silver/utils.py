@@ -65,7 +65,10 @@ def normalize_iso_utc(value):
     try:
         dt = datetime.fromisoformat(text)
     except ValueError:
-        return text
+        # Unparseable value (e.g. a misaligned CSV row where this field actually
+        # holds a hashtag list or follower count). Drop it rather than letting
+        # garbage flow into created_at / date partitions.
+        return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

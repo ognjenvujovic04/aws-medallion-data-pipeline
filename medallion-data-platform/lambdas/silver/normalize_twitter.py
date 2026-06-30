@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from collections import Counter
 
 import awswrangler as wr
@@ -20,6 +21,22 @@ PLATFORM = utils.PLATFORM_X
 CHUNK_SIZE = 100_000
 
 TRUE_STRINGS = {"true", "1", "yes", "t", "y"}
+
+# Original tweet id, if the source ever carries one. The Kaggle Bitcoin Tweets
+# dataset does not, so post_id falls back to the row index (see build_post).
+ID_COLUMN = "id"
+
+# A well-formed row's ``date`` is a timestamp (``YYYY-MM-DD ...``). Some source
+# rows are missing fields, which left-shifts the columns and NaN-pads the tail;
+# ``on_bad_lines="skip"`` only drops rows with too MANY fields, so these survive
+# and land hashtag lists / counts in ``date``. We detect them here and skip them
+# entirely so neither posts nor users ingest the garbage.
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}")
+
+
+def is_valid_row(row):
+    date = _clean(row.get("date"))
+    return date is not None and _DATE_RE.match(date) is not None
 
 
 def twitter_source_path():
@@ -56,11 +73,14 @@ def classify(is_retweet):
     return "retweet" if _to_bool(is_retweet) else "tweet"
 
 
-def build_post(row):
+def build_post(row, row_id):
     username = _clean(row.get("user_name"))
     content = utils.strip_html(_clean(row.get("text")))
+    # Prefer the source's own tweet id; this dataset has none, so fall back to
+    # the row index (deterministic + idempotent across re-runs of the same file).
+    post_id = _clean(row.get(ID_COLUMN)) or str(row_id)
     return {
-        "post_id": utils.make_post_id(PLATFORM, username, row.get("date"), content),
+        "post_id": post_id,
         "author_username": username,
         "title": None,
         "content_text": content,
@@ -150,8 +170,10 @@ def handler(event, context):
     post_types = Counter()
     seen_partitions = set()
     total_rows = 0
+    skipped_rows = 0
     posts_written = 0
     chunks = 0
+    row_offset = 0
 
     try:
         for chunk in wr.s3.read_csv(
@@ -161,19 +183,32 @@ def handler(event, context):
             records = chunk.to_dict("records")
             total_rows += len(records)
 
-            posts_df = build_posts_frame([build_post(row) for row in records])
+            # Assign a stable per-file row index, then drop misaligned rows so
+            # the index stays anchored to the physical row regardless of how many
+            # neighbours are dropped.
+            valid = [
+                (row_offset + i, row)
+                for i, row in enumerate(records)
+                if is_valid_row(row)
+            ]
+            row_offset += len(records)
+            skipped_rows += len(records) - len(valid)
+
+            posts_df = build_posts_frame(
+                [build_post(row, row_id) for row_id, row in valid]
+            )
             if not posts_df.empty:
                 posts_written += write_chunk_posts(
                     posts_df, posts_dest, seen_partitions
                 )
                 post_types.update(posts_df["post_type"].value_counts().to_dict())
 
-            for row in records:
+            for _, row in valid:
                 update_users(users_acc, row)
 
             print(
                 f"chunk={chunks} rows={len(records)} cum_rows={total_rows} "
-                f"posts_written={posts_written}",
+                f"skipped={skipped_rows} posts_written={posts_written}",
                 flush=True,
             )
     except wr.exceptions.NoFilesFound:
@@ -192,6 +227,7 @@ def handler(event, context):
     result = {
         "status": "ok",
         "rows": total_rows,
+        "skipped": skipped_rows,
         "posts": posts_written,
         "users_today": int(len(users_df)),
         "users_total": int(len(merged_users)),
