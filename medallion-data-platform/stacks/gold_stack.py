@@ -3,6 +3,7 @@ from pathlib import Path
 from aws_cdk import (
     Duration,
     Stack,
+    aws_ec2 as ec2,
     aws_lambda as lambda_,
     aws_s3 as s3,
 )
@@ -19,6 +20,8 @@ class GoldStack(Stack):
         construct_id: str,
         *,
         data_lake: s3.IBucket,
+        vpc: ec2.IVpc,
+        lambda_sg: ec2.ISecurityGroup,
         silver_prefix: str = "silver",
         gold_prefix: str = "gold",
         **kwargs,
@@ -42,6 +45,8 @@ class GoldStack(Stack):
             "GOLD_PREFIX": gold_prefix,
         }
 
+        _private = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED)
+
         compute_metrics_fn = lambda_.Function(
             self,
             "ComputeMetrics",
@@ -52,6 +57,9 @@ class GoldStack(Stack):
             timeout=Duration.minutes(10),
             memory_size=1024,
             environment=env,
+            vpc=vpc,
+            vpc_subnets=_private,
+            security_groups=[lambda_sg],
         )
 
         compute_kpi_fn = lambda_.Function(
@@ -64,6 +72,9 @@ class GoldStack(Stack):
             timeout=Duration.minutes(5),
             memory_size=1024,
             environment=env,
+            vpc=vpc,
+            vpc_subnets=_private,
+            security_groups=[lambda_sg],
         )
 
         data_lake.grant_read(compute_metrics_fn, f"{silver_prefix.strip('/')}/*")

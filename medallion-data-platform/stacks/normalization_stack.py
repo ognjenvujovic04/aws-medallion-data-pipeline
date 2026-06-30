@@ -3,6 +3,7 @@ from pathlib import Path
 from aws_cdk import (
     Duration,
     Stack,
+    aws_ec2 as ec2,
     aws_lambda as lambda_,
     aws_s3 as s3,
 )
@@ -19,6 +20,8 @@ class NormalizationStack(Stack):
         construct_id: str,
         *,
         data_lake: s3.IBucket,
+        vpc: ec2.IVpc,
+        lambda_sg: ec2.ISecurityGroup,
         bronze_prefix: str = "bronze/hackernews",
         twitter_prefix: str = "bronze/twitter",
         silver_prefix: str = "silver",
@@ -37,6 +40,8 @@ class NormalizationStack(Stack):
             ),
         )
 
+        _private = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED)
+
         hn_normalize_fn = lambda_.Function(
             self,
             "HackerNewsNormalize",
@@ -54,6 +59,9 @@ class NormalizationStack(Stack):
                 "BRONZE_PREFIX": bronze_prefix,
                 "SILVER_PREFIX": silver_prefix,
             },
+            vpc=vpc,
+            vpc_subnets=_private,
+            security_groups=[lambda_sg],
         )
 
         data_lake.grant_read(hn_normalize_fn, f"{bronze_prefix.strip('/')}/*")
@@ -75,6 +83,9 @@ class NormalizationStack(Stack):
                 "TWITTER_PREFIX": twitter_prefix,
                 "SILVER_PREFIX": silver_prefix,
             },
+            vpc=vpc,
+            vpc_subnets=_private,
+            security_groups=[lambda_sg],
         )
 
         data_lake.grant_read(twitter_normalize_fn, f"{twitter_prefix.strip('/')}/*")
