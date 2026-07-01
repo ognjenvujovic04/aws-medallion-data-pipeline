@@ -123,3 +123,101 @@ memory well under 2048 MB.
 
 > Hacker News is ingested and normalized automatically on a schedule, so its
 > normalize function does not need to be invoked manually.
+
+---
+
+## Serving layer — GoldToPostgres → Superset
+
+The `GoldToPostgres` Lambda ([`load_pg/load_to_postgres.py`](load_pg/load_to_postgres.py))
+reads the 6 **gold** parquet tables from S3 and **upserts** them into the Postgres running
+on the EC2 serving host, where Superset visualizes them. It is defined in
+[`stacks/serving_stack.py`](../stacks/serving_stack.py) (`ServingStack`) alongside the EC2
+host, and runs in the private-isolated subnet behind `lambda_sg` (already allowed to reach
+`postgres_sg:5432`). Credentials arrive as env vars.
+
+| Function file | CDK logical id | Handler | Source → dest |
+| --- | --- | --- | --- |
+| `load_pg/load_to_postgres.py` | `GoldToPostgres` | `load_to_postgres.handler` | `gold/*` (S3) → Postgres (EC2) |
+
+### 1. Deploy the serving stack
+
+`ServingStack` needs deploy-time context: a DB password, your public IP (for Superset/SSH
+ingress), and an **existing** EC2 key pair name in `eu-central-1`. Get your IP with
+`(Invoke-RestMethod "https://ifconfig.me/ip").Trim()` (in PowerShell, `curl` is an alias for
+`Invoke-WebRequest` and returns the whole HTML page, not the IP); create a key pair once with
+`aws ec2 create-key-pair` if you don't have one. From `medallion-data-platform/`:
+
+```powershell
+cdk deploy ServingStack `
+  -c db_password=<CHOOSE_STRONG_PW> `
+  -c admin_ip=<YOUR_PUBLIC_IP> `
+  -c key_name=<EXISTING_EC2_KEYPAIR>
+```
+
+> `db_name` (default `social_medias`) and `db_user` (default `superset`) can be overridden
+> with `-c db_name=... -c db_user=...`. The same password is reused for the Superset admin
+> login and secret key. Without `-c db_password=...`, `ServingStack` is not synthesized at
+> all (so the other stacks still `cdk ls` / `cdk synth` without these flags).
+
+### 2. Ensure gold parquet exists
+
+The load reads whatever is under `gold/*`. Run the gold lambdas first if needed:
+
+```powershell
+$region = "eu-central-1"
+foreach ($name in 'ComputeMetrics','ComputeKpi') {
+  $fn = aws lambda list-functions --region $region `
+    --query "Functions[?contains(FunctionName,'$name')].FunctionName" --output text
+  aws lambda invoke --function-name $fn --payload '{}' `
+    --cli-binary-format raw-in-base64-out --region $region "$name.json"
+  Get-Content "$name.json"
+}
+```
+
+### 3. Invoke GoldToPostgres
+
+```powershell
+$region = "eu-central-1"
+$fn = aws lambda list-functions --region $region `
+  --query "Functions[?contains(FunctionName,'GoldToPostgres')].FunctionName" --output text
+
+aws lambda invoke `
+  --function-name $fn `
+  --payload '{}' `
+  --cli-binary-format raw-in-base64-out `
+  --cli-read-timeout 0 `
+  --region $region `
+  response.json
+
+Get-Content response.json
+```
+
+A successful run returns a per-table summary, e.g.:
+
+```json
+{ "loaded": { "daily_post_counts": 42, "daily_users_metric": 8,
+  "top_users_by_followers": 10, "top_users_by_karma": 20,
+  "top_posts_by_score": 30, "data_quality_kpi": 6 } }
+```
+
+Tables with no gold parquet yet report `"no gold parquet found — skipped"`.
+**Re-invoking is idempotent** — each table upserts on its primary key, so row counts stay
+stable instead of duplicating. If you see a message about a missing/failed connection,
+confirm `ServingStack` finished deploying and the EC2 host is up (the Lambda targets the
+instance's private IP on `5432`).
+
+### 4. Validate rows in Postgres
+
+SSH to the host (`ssh -i <key>.pem ec2-user@<ELASTIC_IP>`) and query via the container:
+
+```bash
+sudo docker exec -it serving-postgres \
+  psql -U superset -d social_medias -c "\dt"          # lists the 6 tables
+
+sudo docker exec -it serving-postgres \
+  psql -U superset -d social_medias -c "SELECT count(*) FROM daily_post_counts;"
+```
+
+Then open Superset — the 4 dashboards are already provisioned by code
+(`superset-init` runs [`../ec2/superset_bootstrap.py`](../ec2/superset_bootstrap.py) on
+boot); they render data as soon as this load finishes. See [`../ec2/README.md`](../ec2/README.md).

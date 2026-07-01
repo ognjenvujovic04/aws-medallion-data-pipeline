@@ -12,3 +12,6 @@ cdk.out
 data/bitcoin-tweets/*.csv
 data/bitcoin-tweets/*.zip
 data/bitcoin-tweets/*.ZIP
+
+# SSH private keys for the serving EC2 host — never commit
+*.pem
