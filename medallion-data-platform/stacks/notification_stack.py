@@ -5,6 +5,7 @@ from aws_cdk import (
     Stack,
     aws_cloudwatch as cw,
     aws_cloudwatch_actions as cw_actions,
+    aws_iam as iam,
     aws_lambda as lambda_,
     aws_lambda_event_sources as lambda_events,
     aws_sns as sns,
@@ -13,16 +14,18 @@ from constructs import Construct
 
 
 class NotificationStack(Stack):
-    """Discord notifications for Lambda failures.
+    """Email notifications via SES for Lambda failures.
 
     Creates one CloudWatch Alarm per monitored function (Errors >= 1 in a
     1-minute window). All alarms publish to a single SNS topic; the
-    DiscordNotify Lambda subscribes to that topic and POSTs to the webhook.
+    EmailNotify Lambda subscribes to that topic and sends an email via SES.
 
     Pass monitored_functions as a dict of human-readable label -> IFunction so
     alarm names are predictable (e.g. "HackerNewsIngest Errors").
 
-    Requires -c discord_webhook=<webhook_url> at deploy time.
+    Requires -c notification_email=<email> at deploy time.
+    Both sender and recipient are set to the same address.
+    The address must be verified in SES before deploying.
     """
 
     def __init__(
@@ -31,7 +34,8 @@ class NotificationStack(Stack):
         construct_id: str,
         *,
         monitored_functions: dict,
-        discord_webhook_url: str,
+        sender_email: str,
+        recipient_email: str,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -40,14 +44,24 @@ class NotificationStack(Stack):
 
         notify_fn = lambda_.Function(
             self,
-            "DiscordNotify",
+            "EmailNotify",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="handler.handler",
             code=lambda_.Code.from_asset(
                 str(Path(__file__).resolve().parent.parent / "lambdas" / "notify")
             ),
             timeout=Duration.seconds(30),
-            environment={"DISCORD_WEBHOOK_URL": discord_webhook_url},
+            environment={
+                "SENDER_EMAIL": sender_email,
+                "RECIPIENT_EMAIL": recipient_email,
+            },
+        )
+
+        notify_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["ses:SendEmail"],
+                resources=["*"],
+            )
         )
 
         notify_fn.add_event_source(lambda_events.SnsEventSource(topic))

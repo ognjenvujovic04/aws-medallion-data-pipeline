@@ -62,8 +62,8 @@ if app.node.try_get_context("db_password"):
 
 # NotificationStack requires -c discord_webhook=<url>. Like ServingStack it is
 # skipped when the flag is absent so the rest of the app still synths cleanly.
-discord_webhook = app.node.try_get_context("discord_webhook")
-if discord_webhook:
+notification_email = app.node.try_get_context("notification_email")
+if notification_email:
     monitored = {
         "HackerNewsIngest": ingestion.hacker_news_fn,
         "HackerNewsNormalize": normalization.hn_normalize_fn,
@@ -77,7 +77,8 @@ if discord_webhook:
         app,
         "NotificationStack",
         monitored_functions=monitored,
-        discord_webhook_url=discord_webhook,
+        sender_email=notification_email,
+        recipient_email=notification_email,
         env=env,
     )
 
