@@ -33,11 +33,13 @@ You also need the **AWS CLI** configured with credentials for the target account
 
 ## The stacks
 
-`app.py` wires six stacks. Everything except `ServingStack` synthesizes with no extra flags:
+`app.py` wires the stacks below. `ServingStack` and `NotificationStack` appear only when their
+`-c` flags are supplied; everything else synthesizes with no extra flags:
 
 ```powershell
-cdk ls        # NetworkStack StorageStack IngestionStack NormalizationStack GoldStack
-              # (ServingStack appears only when -c db_password=... is passed)
+cdk ls        # NetworkStack StorageStack IngestionStack NormalizationStack GoldStack StepFuncStack
+              # (ServingStack appears only when -c db_password=... is passed;
+              #  NotificationStack only when -c notification_email=... is passed)
 cdk synth
 cdk diff <StackName>
 ```
@@ -46,13 +48,20 @@ cdk diff <StackName>
 | --- | --- | --- |
 | `NetworkStack` | — | VPC, subnets, `lambda_sg` / `postgres_sg` |
 | `StorageStack` | — | the single versioned S3 data-lake bucket |
-| `IngestionStack` | bronze | `HackerNewsIngest` lambda + daily EventBridge cron |
+| `IngestionStack` | bronze | `HackerNewsIngest` lambda (scheduled by `StepFuncStack`, not here) |
 | `NormalizationStack` | silver | `HackerNewsNormalize` + `TwitterNormalize` lambdas |
 | `GoldStack` | gold | `ComputeMetrics` + `ComputeKpi` lambdas |
 | `ServingStack` | serving | EC2 host (Postgres + Superset) + `GoldToPostgres` lambda |
+| `NotificationStack` | — | per-lambda error alarms → SNS → SES email (`EmailNotify`) |
+| `StepFuncStack` | — | daily state machine orchestrating the whole pipeline |
 
-`ServingStack` is only instantiated when `-c db_password=...` is supplied, so the rest of the
-app still `cdk ls` / `cdk synth` cleanly without serving secrets.
+`StepFuncStack` runs the **daily schedule**: a state machine chaining `HackerNewsIngest` →
+`HackerNewsNormalize` → parallel `ComputeMetrics`/`ComputeKpi` → `GoldToPostgres`. The
+`GoldToPostgres` step is included only when `ServingStack` is deployed, and a pipeline-level
+failure alarm is wired to the notification topic only when `NotificationStack` is deployed.
+`ServingStack` (`-c db_password=...`) and `NotificationStack` (`-c notification_email=...`) are
+only instantiated when their flags are supplied, so the rest of the app still `cdk ls` /
+`cdk synth` cleanly without those secrets.
 
 ---
 
@@ -67,9 +76,13 @@ cdk deploy NetworkStack StorageStack
 
 # 2. bronze / silver / gold lambdas
 cdk deploy IngestionStack NormalizationStack GoldStack
+
+# 3. daily orchestration (state machine + schedule)
+cdk deploy StepFuncStack
 ```
 
-Hacker News is ingested **and** normalized automatically on a schedule. The Twitter dataset
+`StepFuncStack` runs the daily pipeline end-to-end on a schedule (01:00 UTC): ingest → normalize
+→ gold metrics/KPI → (if `ServingStack` is deployed) load to Postgres. The Twitter dataset
 is a one-time manual backfill — upload it to bronze
 ([`data/bitcoin-tweets/README.md`](data/bitcoin-tweets/README.md)) and invoke `TwitterNormalize`
 ([`lambdas/README.md`](lambdas/README.md#normalize-twitter-x-data)).

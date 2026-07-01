@@ -3,8 +3,6 @@ from pathlib import Path
 from aws_cdk import (
     Duration,
     Stack,
-    aws_events as events,
-    aws_events_targets as targets,
     aws_lambda as lambda_,
     aws_s3 as s3,
 )
@@ -40,11 +38,7 @@ class IngestionStack(Stack):
 
         data_lake.grant_put(hacker_news_fn, "bronze/hackernews/*")
 
+        # Exposed so StepFuncStack can orchestrate this collector as the first
+        # pipeline step. The daily schedule lives in StepFuncStack now (it starts
+        # the whole state machine), not on this raw collector.
         self.hacker_news_fn = hacker_news_fn
-
-        events.Rule(
-            self,
-            "HackerNewsDailySchedule",
-            schedule=events.Schedule.cron(minute="0", hour="1"),
-            targets=[targets.LambdaFunction(hacker_news_fn)],
-        )
