@@ -49,7 +49,7 @@ class NetworkStack(Stack):
             self,
             "PostgresSG",
             vpc=self.vpc,
-            description="EC2 Postgres/Superset — inbound 5432 from LambdaSG only",
+            description="EC2 Postgres/Superset - inbound 5432 from LambdaSG only",
             allow_all_outbound=True,
         )
 
@@ -63,7 +63,7 @@ class NetworkStack(Stack):
             self,
             "HnIngestSG",
             vpc=self.vpc,
-            description="HN Ingestion Lambda — outbound HTTPS to HN/Algolia API and S3",
+            description="HN Ingestion Lambda - outbound HTTPS to HN/Algolia API and S3",
             allow_all_outbound=False,
         )
         self.hn_ingest_sg.add_egress_rule(

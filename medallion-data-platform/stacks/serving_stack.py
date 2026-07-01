@@ -2,15 +2,21 @@ from pathlib import Path
 
 from aws_cdk import (
     CfnOutput,
+    Duration,
     Stack,
     aws_ec2 as ec2,
+    aws_lambda as lambda_,
     aws_s3 as s3,
 )
 from constructs import Construct
 
+# Same AWS SDK for pandas layer used by GoldStack; pg8000 is bundled in it.
+AWS_SDK_PANDAS_LAYER_ACCOUNT = "336392948345"
+AWS_SDK_PANDAS_LAYER_VERSION = 29
+
 
 class ServingStack(Stack):
-    """Serving layer: a t3.medium EC2 host running Postgres + Superset in Docker.
+    """Serving layer: a t3.micro EC2 host running Postgres + Superset in Docker.
 
     The host attaches to the existing ``postgres_sg`` (already reachable on 5432
     from ``lambda_sg``). This stack only *adds* human-access ingress (8088 Superset,
@@ -97,7 +103,7 @@ class ServingStack(Stack):
             self,
             "ServingHost",
             instance_type=ec2.InstanceType.of(
-                ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM
+                ec2.InstanceClass.T3, ec2.InstanceSize.MICRO
             ),
             machine_image=ec2.MachineImage.latest_amazon_linux2023(),
             vpc=vpc,
@@ -126,6 +132,49 @@ class ServingStack(Stack):
         )
 
         self.instance = instance
+
+        # --- GoldToPostgres load Lambda (task H) ---
+        # Mirrors the GoldStack lambda shape: private-isolated subnet behind lambda_sg,
+        # reusing the pandas layer. Reaches the EC2 private IP on 5432; upserts gold
+        # parquet into Postgres. Credentials via env vars (no Secrets Manager reach).
+        load_lambdas = Path(__file__).resolve().parent.parent / "lambdas" / "load_pg"
+
+        pandas_layer = lambda_.LayerVersion.from_layer_version_arn(
+            self,
+            "AwsSdkPandasLayer",
+            (
+                f"arn:aws:lambda:{self.region}:{AWS_SDK_PANDAS_LAYER_ACCOUNT}"
+                f":layer:AWSSDKPandas-Python312:{AWS_SDK_PANDAS_LAYER_VERSION}"
+            ),
+        )
+
+        load_fn = lambda_.Function(
+            self,
+            "GoldToPostgres",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="load_to_postgres.handler",
+            code=lambda_.Code.from_asset(str(load_lambdas)),
+            layers=[pandas_layer],
+            timeout=Duration.minutes(10),
+            memory_size=1024,
+            environment={
+                "DATA_LAKE_BUCKET": data_lake.bucket_name,
+                "GOLD_PREFIX": gold_prefix,
+                "DB_HOST": instance.instance_private_ip,
+                "DB_PORT": "5432",
+                "DB_NAME": db_name,
+                "DB_USER": db_user,
+                "DB_PASSWORD": db_password,
+            },
+            vpc=vpc,
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
+            ),
+            security_groups=[lambda_sg],
+        )
+        data_lake.grant_read(load_fn, f"{gold_prefix.strip('/')}/*")
+
+        self.load_fn = load_fn
 
         CfnOutput(self, "ServingPublicIp", value=eip.ref, description="Elastic IP")
         CfnOutput(

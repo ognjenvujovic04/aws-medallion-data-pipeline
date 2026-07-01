@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # EC2 user-data for the serving host (PostgreSQL + Apache Superset on Docker).
-# Target AMI: Amazon Linux 2023 (dnf, x86_64 / t3.medium).
+# Target AMI: Amazon Linux 2023 (dnf, x86_64 / t3.micro).
 #
 # CONTRACT — before this script runs, ServingStack (CDK) must have created:
 #   /opt/serving/docker-compose.yml   (from ec2/docker-compose.yml)
@@ -17,9 +17,9 @@ set -euxo pipefail
 
 APP_DIR=/opt/serving
 
-# --- 2 GB swap (spike insurance during image pulls / Superset init) ---
+# --- 4 GB swap (essential headroom on t3.micro's 1 GB RAM during Superset init) ---
 if [ ! -f /swapfile ]; then
-  dd if=/dev/zero of=/swapfile bs=1M count=2048
+  dd if=/dev/zero of=/swapfile bs=1M count=4096
   chmod 600 /swapfile
   mkswap /swapfile
   swapon /swapfile
