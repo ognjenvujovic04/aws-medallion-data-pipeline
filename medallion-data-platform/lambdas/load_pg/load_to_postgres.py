@@ -16,7 +16,7 @@ Flat import style (deployment root is this handler's dir), matching the other la
 import os
 
 import awswrangler as wr
-import pg8000.native  # noqa: F401 — ensure the bundled driver is importable
+import pg8000  # DBAPI driver bundled in the pandas layer
 
 # table name -> upsert conflict columns (must match schema.sql PRIMARY KEYs).
 TABLES = {
@@ -30,7 +30,9 @@ TABLES = {
 
 
 def _connect():
-    return pg8000.native.Connection(
+    # awswrangler's to_sql requires a DBAPI pg8000 connection (pg8000.connect /
+    # pg8000.legacy.Connection), NOT pg8000.native.Connection.
+    return pg8000.connect(
         host=os.environ["DB_HOST"],
         port=int(os.environ.get("DB_PORT", "5432")),
         database=os.environ["DB_NAME"],
