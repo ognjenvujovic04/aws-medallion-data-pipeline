@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_lambda as lambda_,
     aws_s3 as s3,
+    aws_s3_assets as s3_assets,
 )
 from constructs import Construct
 
@@ -69,18 +70,33 @@ class ServingStack(Stack):
         )
 
         # --- user-data: stage /opt/serving assets, then run the provisioning script ---
+        # The runtime files (compose, schema, bootstrap) are shipped as S3 assets and
+        # pulled down at boot rather than heredoc-inlined: inlining all of them (the
+        # 15 KB bootstrap alone) blows the 16 KB EC2 user-data limit. Only the tiny
+        # .env is written inline — it holds the db_password/secret key, which must not
+        # land in the (world-of-account-readable) CDK assets bucket.
+        compose_asset = s3_assets.Asset(
+            self, "ComposeAsset", path=str(ec2_assets / "docker-compose.yml")
+        )
+        schema_asset = s3_assets.Asset(
+            self, "SchemaAsset", path=str(ec2_assets / "schema.sql")
+        )
+        # superset-init compose service mounts this to build the dashboards by code.
+        bootstrap_asset = s3_assets.Asset(
+            self, "BootstrapAsset", path=str(ec2_assets / "superset_bootstrap.py")
+        )
         # Reuse SUPERSET_SECRET_KEY = db_password for this teaching deployment (kept
         # out of git; passed via CDK context only). Superset admin == the db creds.
-        compose = _lf((ec2_assets / "docker-compose.yml").read_text(encoding="utf-8"))
-        schema = _lf((ec2_assets / "schema.sql").read_text(encoding="utf-8"))
         provision = _lf((ec2_assets / "user_data.sh").read_text(encoding="utf-8"))
 
         user_data = ec2.UserData.for_linux()
         user_data.add_commands(
             "set -euxo pipefail",
             "mkdir -p /opt/serving",
-            _heredoc("/opt/serving/docker-compose.yml", compose),
-            _heredoc("/opt/serving/schema.sql", schema),
+            # AL2023 ships the AWS CLI; the host is in a public subnet so S3 is reachable.
+            f"aws s3 cp {compose_asset.s3_object_url} /opt/serving/docker-compose.yml",
+            f"aws s3 cp {schema_asset.s3_object_url} /opt/serving/schema.sql",
+            f"aws s3 cp {bootstrap_asset.s3_object_url} /opt/serving/superset_bootstrap.py",
             _heredoc(
                 "/opt/serving/.env",
                 "\n".join(
@@ -121,6 +137,12 @@ class ServingStack(Stack):
                 )
             ],
         )
+
+        # Let the instance role read the staged assets it pulls in user-data (scoped
+        # to just these objects in the CDK assets bucket — least privilege).
+        compose_asset.grant_read(instance.role)
+        schema_asset.grant_read(instance.role)
+        bootstrap_asset.grant_read(instance.role)
 
         # --- stable public address (Elastic IP) ---
         eip = ec2.CfnEIP(self, "ServingEip", domain="vpc")
