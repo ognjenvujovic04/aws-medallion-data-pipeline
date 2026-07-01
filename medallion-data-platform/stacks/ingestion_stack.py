@@ -40,6 +40,8 @@ class IngestionStack(Stack):
 
         data_lake.grant_put(hacker_news_fn, "bronze/hackernews/*")
 
+        self.hacker_news_fn = hacker_news_fn
+
         events.Rule(
             self,
             "HackerNewsDailySchedule",
