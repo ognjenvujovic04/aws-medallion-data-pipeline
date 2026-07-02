@@ -1,8 +1,5 @@
 import json
 import os
-import urllib.parse
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 
 import boto3
@@ -27,37 +24,6 @@ TAG_TO_TYPE = [
 ]
 
 s3 = boto3.client("s3")
-
-HN_USER_URL = "https://hacker-news.firebaseio.com/v0/user/{}.json"
-_KARMA_WORKERS = 20
-_KARMA_TIMEOUT = 10
-
-
-def _fetch_one_karma(username):
-    url = HN_USER_URL.format(urllib.parse.quote(username, safe=""))
-    try:
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "medallion-data-platform/1.0"}
-        )
-        with urllib.request.urlopen(req, timeout=_KARMA_TIMEOUT) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if data:
-                return username, data.get("karma")
-    except Exception:
-        pass
-    return username, None
-
-
-def fetch_karma_scores(usernames):
-    scores = {}
-    with ThreadPoolExecutor(max_workers=_KARMA_WORKERS) as pool:
-        futures = {pool.submit(_fetch_one_karma, u): u for u in usernames}
-        for future in as_completed(futures):
-            username, karma = future.result()
-            scores[username] = karma
-    fetched = sum(v is not None for v in scores.values())
-    print(f"karma fetched: {fetched}/{len(scores)} users")
-    return scores
 
 
 def resolve_target_date(event):
@@ -132,6 +98,7 @@ def build_posts_frame(posts):
 
 def build_users_frame(hits):
     earliest = {}
+    karma = {}
     for hit in hits:
         author = hit.get("author")
         created = utils.epoch_to_utc_iso(hit.get("created_at_i"))
@@ -139,14 +106,14 @@ def build_users_frame(hits):
             continue
         if author not in earliest or created < earliest[author]:
             earliest[author] = created
-
-    karma_scores = fetch_karma_scores(list(earliest.keys()))
+        if karma.get(author) is None and hit.get("author_karma") is not None:
+            karma[author] = hit.get("author_karma")
 
     rows = [
         {
             "user_id": utils.make_user_id(PLATFORM, author),
             "username": author,
-            "karma_score": karma_scores.get(author),
+            "karma_score": karma.get(author),
             "is_verified": None,
             "followers_count": None,
             "created_at": created,

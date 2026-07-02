@@ -8,6 +8,7 @@ from stacks.normalization_stack import NormalizationStack
 from stacks.gold_stack import GoldStack
 from stacks.serving_stack import ServingStack
 from stacks.notification_stack import NotificationStack
+from stacks.stepfunc_stack import StepFuncStack
 
 app = cdk.App()
 env = cdk.Environment(region="eu-central-1")
@@ -60,8 +61,9 @@ if app.node.try_get_context("db_password"):
         env=env,
     )
 
-# NotificationStack requires -c discord_webhook=<url>. Like ServingStack it is
+# NotificationStack requires -c notification_email=<email>. Like ServingStack it is
 # skipped when the flag is absent so the rest of the app still synths cleanly.
+notification = None
 notification_email = app.node.try_get_context("notification_email")
 if notification_email:
     monitored = {
@@ -73,7 +75,7 @@ if notification_email:
     }
     if serving:
         monitored["GoldToPostgres"] = serving.load_fn
-    NotificationStack(
+    notification = NotificationStack(
         app,
         "NotificationStack",
         monitored_functions=monitored,
@@ -81,5 +83,20 @@ if notification_email:
         recipient_email=notification_email,
         env=env,
     )
+
+# StepFuncStack orchestrates the daily pipeline. The GoldToPostgres load step is
+# included only when ServingStack is deployed; the pipeline-level failure alarm is
+# wired to the shared notification topic only when NotificationStack is deployed.
+StepFuncStack(
+    app,
+    "StepFuncStack",
+    hn_ingest_fn=ingestion.hacker_news_fn,
+    hn_normalize_fn=normalization.hn_normalize_fn,
+    compute_metrics_fn=gold.compute_metrics_fn,
+    compute_kpi_fn=gold.compute_kpi_fn,
+    load_fn=serving.load_fn if serving else None,
+    failure_topic=notification.topic if notification else None,
+    env=env,
+)
 
 app.synth()

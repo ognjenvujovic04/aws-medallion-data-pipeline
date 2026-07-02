@@ -79,3 +79,6 @@ class NotificationStack(Stack):
                 alarm_description=f"{label} threw at least one error",
             )
             alarm.add_alarm_action(cw_actions.SnsAction(topic))
+
+
+        self.topic = topic

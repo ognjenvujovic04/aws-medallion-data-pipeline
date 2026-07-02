@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 
 import boto3
@@ -17,9 +18,40 @@ HTTP_TIMEOUT = 20
 HITS_PER_PAGE = 1000
 MAX_REQUESTS = 100
 
+HN_USER_URL = "https://hacker-news.firebaseio.com/v0/user/{}.json"
+_KARMA_WORKERS = 50
+_KARMA_TIMEOUT = 10
+
 COUNTED_TAGS = ("story", "comment", "poll", "pollopt", "job", "ask_hn", "show_hn")
 
 s3 = boto3.client("s3")
+
+
+def _fetch_one_karma(username):
+    url = HN_USER_URL.format(urllib.parse.quote(username, safe=""))
+    try:
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "medallion-data-platform/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=_KARMA_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data:
+                return username, data.get("karma")
+    except Exception:
+        pass
+    return username, None
+
+
+def fetch_karma_scores(usernames):
+    scores = {}
+    with ThreadPoolExecutor(max_workers=_KARMA_WORKERS) as pool:
+        futures = {pool.submit(_fetch_one_karma, u): u for u in usernames}
+        for future in as_completed(futures):
+            username, karma = future.result()
+            scores[username] = karma
+    fetched = sum(v is not None for v in scores.values())
+    print(f"karma fetched: {fetched}/{len(scores)} users")
+    return scores
 
 
 def resolve_target_date(event):
@@ -83,6 +115,13 @@ def handler(event, context):
         print(f"WARNING: hit MAX_REQUESTS={MAX_REQUESTS} cap; results may be incomplete")
 
     print(f"collected {len(hits)} items total")
+
+    # Enrich each hit with the author's karma so the silver layer (no internet) can
+    # populate users.karma_score without any HTTP of its own.
+    authors = {h.get("author") for h in hits if h.get("author")}
+    karma_scores = fetch_karma_scores(authors)
+    for h in hits:
+        h["author_karma"] = karma_scores.get(h.get("author"))
 
     yyyy = target_date.strftime("%Y")
     mm = target_date.strftime("%m")
