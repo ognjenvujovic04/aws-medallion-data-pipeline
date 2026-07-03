@@ -202,7 +202,19 @@ def ts_params(viz: str, ds_id: int, x: str, metrics: list, groupby: list, stacke
     return p
 
 
-def dist_bar_params(ds_id: int, groupby: list, metrics: list, breakdown: list, row_limit: int) -> dict:
+def simple_filter(col: str, value: str) -> dict:
+    return {
+        "expressionType": "SIMPLE",
+        "subject": col,
+        "operator": "==",
+        "operatorId": "EQUALS",
+        "comparator": value,
+        "clause": "WHERE",
+    }
+
+
+def dist_bar_params(ds_id: int, groupby: list, metrics: list, breakdown: list, row_limit: int,
+                    adhoc_filters: list | None = None, order_desc: bool = True) -> dict:
     return {
         "datasource": f"{ds_id}__table",
         "viz_type": "dist_bar",
@@ -210,9 +222,9 @@ def dist_bar_params(ds_id: int, groupby: list, metrics: list, breakdown: list, r
         "groupby": groupby,
         "columns": breakdown,
         "row_limit": row_limit,
-        "order_desc": True,
+        "order_desc": order_desc,
         "time_range": "No filter",
-        "adhoc_filters": [],
+        "adhoc_filters": adhoc_filters or [],
         "color_scheme": "supersetColors",
         "show_legend": True,
         "y_axis_format": "SMART_NUMBER",
@@ -380,9 +392,17 @@ def main() -> None:
             d3,
         ),
         ensure_chart(
-            sup, "Top / bottom users by karma (HN)", "dist_bar", dsid("top_users_by_karma"),
+            sup, "Top users by karma (HN)", "dist_bar", dsid("top_users_by_karma"),
             dist_bar_params(dsid("top_users_by_karma"), ["username"],
-                            [metric(cols("top_users_by_karma"), "MAX", "karma_score")], ["rank_type"], 20),
+                            [metric(cols("top_users_by_karma"), "MAX", "karma_score")], [], 10,
+                            adhoc_filters=[simple_filter("rank_type", "highest")], order_desc=True),
+            d3,
+        ),
+        ensure_chart(
+            sup, "Bottom users by karma (HN)", "dist_bar", dsid("top_users_by_karma"),
+            dist_bar_params(dsid("top_users_by_karma"), ["username"],
+                            [metric(cols("top_users_by_karma"), "MIN", "karma_score")], [], 10,
+                            adhoc_filters=[simple_filter("rank_type", "lowest")], order_desc=False),
             d3,
         ),
     ]
@@ -406,7 +426,7 @@ def main() -> None:
     ]
     sup.put(f"/api/v1/dashboard/{d4}", {"position_json": json.dumps(build_position(c)), "published": True})
 
-    print("bootstrap complete: 1 database, 6 datasets, 8 charts, 4 dashboards", flush=True)
+    print("bootstrap complete: 1 database, 6 datasets, 9 charts, 4 dashboards", flush=True)
 
 
 if __name__ == "__main__":
