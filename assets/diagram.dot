@@ -1,0 +1,597 @@
+digraph "Diagram" {
+  splines = "ortho";
+  pad = 1;
+  nodesep = 0.6;
+  ranksep = 0.75;
+  fontname = "Sans-Serif";
+  fontsize = 15;
+  dpi = 200;
+  rankdir = "BT";
+  compound = true;
+  fontcolor = "#222222";
+  edge [
+    color = "#D5871488";
+    penwidth = 2;
+    arrowhead = "dot";
+    arrowtail = "dot";
+  ];
+  node [
+    shape = "box";
+    style = "rounded";
+    fixedsize = true;
+    width = 1.7;
+    height = 1.7;
+    labelloc = "c";
+    imagescale = true;
+    fontname = "Sans-Serif";
+    fontsize = 8;
+    margin = 8;
+  ];
+  subgraph "App" {
+    subgraph "cluster-SubGraph.App" {
+      graph [
+        label = "App";
+        labelloc = "b";
+        labeljust = "l";
+        margin = 10;
+        fontsize = 16;
+        penwidth = 2;
+        pencolor = "#888888";
+        style = "filled,rounded";
+        fillcolor = "#f3f3f3";
+      ];
+      subgraph "cluster-SubGraph.NetworkStack" {
+        graph [
+          label = "NetworkStack";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "NetworkStack/MedallionVpc" [
+          label = " MedallionVpc";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Networking-Content\64\Arch_Amazon-Virtual-Private-Cloud_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "NetworkStack/LambdaSG" [
+          label = " LambdaSG";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\security_group.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "NetworkStack/PostgresSG" [
+          label = " PostgresSG";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\security_group.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "NetworkStack/HnIngestSG" [
+          label = " HnIngestSG";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\security_group.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+      }
+      subgraph "cluster-SubGraph.StorageStack" {
+        graph [
+          label = "StorageStack";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "StorageStack/DataLake" [
+          label = " DataLake";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Storage\64\Arch_Amazon-S3-Standard_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+      }
+      subgraph "cluster-SubGraph.IngestionStack" {
+        graph [
+          label = "IngestionStack";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "IngestionStack/HackerNewsIngest" [
+          label = " HackerNewsIngest";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Compute\64\Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+      }
+      subgraph "cluster-SubGraph.NormalizationStack" {
+        graph [
+          label = "NormalizationStack";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "NormalizationStack/HackerNewsNormalize" [
+          label = " HackerNewsNormalize";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Compute\64\Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "NormalizationStack/TwitterNormalize" [
+          label = " TwitterNormalize";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Compute\64\Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+      }
+      subgraph "cluster-SubGraph.GoldStack" {
+        graph [
+          label = "GoldStack";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "GoldStack/ComputeMetrics" [
+          label = " ComputeMetrics";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Compute\64\Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "GoldStack/ComputeKpi" [
+          label = " ComputeKpi";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Compute\64\Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+      }
+      subgraph "cluster-SubGraph.ServingStack" {
+        graph [
+          label = "ServingStack";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "ServingStack/ServingHost" [
+          label = " ServingHost";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Resource\Res_Compute\Res_48_Dark\Res_Amazon-EC2_T3-Instance_48_Dark.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "ServingStack/ServingEip" [
+          label = " EC2 EIP ServingEip";
+          fontsize = 12;
+        ];
+        "ServingStack/ServingEipAssoc" [
+          label = " EC2 EIPAssociation\nServingEipAssoc";
+          fontsize = 12;
+        ];
+        "ServingStack/GoldToPostgres" [
+          label = " GoldToPostgres";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Compute\64\Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+      }
+      subgraph "cluster-SubGraph.NotificationStack" {
+        graph [
+          label = "NotificationStack";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "NotificationStack/LambdaFailureTopic" [
+          label = " LambdaFailureTopic";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_App-Integration\Arch_64\Arch_AWS-Simple-Notification-Service_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "NotificationStack/EmailNotify" [
+          label = " EmailNotify";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Compute\64\Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "NotificationStack/HackerNewsIngestErrorAlarm" [
+          label = "\nHackerNewsIngestError";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Management-Governance\64\Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "NotificationStack/HackerNewsNormalizeErrorAlarm" [
+          label = "\nHackerNewsNormalizeEr";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Management-Governance\64\Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "NotificationStack/TwitterNormalizeErrorAlarm" [
+          label = "\nTwitterNormalizeError";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Management-Governance\64\Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "NotificationStack/ComputeMetricsErrorAlarm" [
+          label = "\nComputeMetricsErrorAl";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Management-Governance\64\Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "NotificationStack/ComputeKpiErrorAlarm" [
+          label = " ComputeKpiErrorAlarm";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Management-Governance\64\Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "NotificationStack/GoldToPostgresErrorAlarm" [
+          label = "\nGoldToPostgresErrorAl";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Management-Governance\64\Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+      }
+      subgraph "cluster-SubGraph.StepFuncStack" {
+        graph [
+          label = "StepFuncStack";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "StepFuncStack/Pipeline" [
+          label = " Pipeline";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_App-Integration\Arch_64\Arch_AWS-Step-Functions_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "StepFuncStack/DailySchedule" [
+          label = " DailySchedule";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_App-Integration\Arch_64\Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "StepFuncStack/PipelineFailedAlarm" [
+          label = " PipelineFailedAlarm";
+          fontsize = 12;
+          image = "C:\Users\ognje\AppData\Roaming\npm\node_modules\cdk-dia\icons\aws\Service\Arch_Management-Governance\64\Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+      }
+    }
+  }
+  "NetworkStack/LambdaSG" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "NetworkStack/LambdaSG" -> "NetworkStack/PostgresSG" [
+    dir = "both";
+  ];
+  "NetworkStack/PostgresSG" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "NetworkStack/PostgresSG" -> "NetworkStack/LambdaSG" [
+    dir = "both";
+  ];
+  "NetworkStack/HnIngestSG" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "IngestionStack/HackerNewsIngest" -> "StorageStack/DataLake" [
+    dir = "both";
+  ];
+  "NormalizationStack/HackerNewsNormalize" -> "StorageStack/DataLake" [
+    dir = "both";
+  ];
+  "NormalizationStack/HackerNewsNormalize" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "NormalizationStack/HackerNewsNormalize" -> "NetworkStack/LambdaSG" [
+    dir = "both";
+  ];
+  "NormalizationStack/TwitterNormalize" -> "StorageStack/DataLake" [
+    dir = "both";
+  ];
+  "NormalizationStack/TwitterNormalize" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "NormalizationStack/TwitterNormalize" -> "NetworkStack/LambdaSG" [
+    dir = "both";
+  ];
+  "GoldStack/ComputeMetrics" -> "StorageStack/DataLake" [
+    dir = "both";
+  ];
+  "GoldStack/ComputeMetrics" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "GoldStack/ComputeMetrics" -> "NetworkStack/LambdaSG" [
+    dir = "both";
+  ];
+  "GoldStack/ComputeKpi" -> "StorageStack/DataLake" [
+    dir = "both";
+  ];
+  "GoldStack/ComputeKpi" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "GoldStack/ComputeKpi" -> "NetworkStack/LambdaSG" [
+    dir = "both";
+  ];
+  "ServingStack/ServingHost" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "ServingStack/ServingHost" -> "NetworkStack/PostgresSG" [
+    dir = "both";
+  ];
+  "ServingStack/ServingEipAssoc" -> "ServingStack/ServingEip" [
+    dir = "both";
+  ];
+  "ServingStack/ServingEipAssoc" -> "ServingStack/ServingHost" [
+    dir = "both";
+  ];
+  "ServingStack/GoldToPostgres" -> "StorageStack/DataLake" [
+    dir = "both";
+  ];
+  "ServingStack/GoldToPostgres" -> "NetworkStack/MedallionVpc" [
+    dir = "both";
+  ];
+  "ServingStack/GoldToPostgres" -> "NetworkStack/LambdaSG" [
+    dir = "both";
+  ];
+  "ServingStack/GoldToPostgres" -> "ServingStack/ServingHost" [
+    dir = "both";
+  ];
+  "NotificationStack/EmailNotify" -> "NotificationStack/LambdaFailureTopic" [
+    dir = "both";
+  ];
+  "NotificationStack/HackerNewsIngestErrorAlarm" -> "IngestionStack/HackerNewsIngest" [
+    dir = "both";
+  ];
+  "NotificationStack/HackerNewsIngestErrorAlarm" -> "NotificationStack/LambdaFailureTopic" [
+    dir = "both";
+  ];
+  "NotificationStack/HackerNewsNormalizeErrorAlarm" -> "NormalizationStack/HackerNewsNormalize" [
+    dir = "both";
+  ];
+  "NotificationStack/HackerNewsNormalizeErrorAlarm" -> "NotificationStack/LambdaFailureTopic" [
+    dir = "both";
+  ];
+  "NotificationStack/TwitterNormalizeErrorAlarm" -> "NormalizationStack/TwitterNormalize" [
+    dir = "both";
+  ];
+  "NotificationStack/TwitterNormalizeErrorAlarm" -> "NotificationStack/LambdaFailureTopic" [
+    dir = "both";
+  ];
+  "NotificationStack/ComputeMetricsErrorAlarm" -> "GoldStack/ComputeMetrics" [
+    dir = "both";
+  ];
+  "NotificationStack/ComputeMetricsErrorAlarm" -> "NotificationStack/LambdaFailureTopic" [
+    dir = "both";
+  ];
+  "NotificationStack/ComputeKpiErrorAlarm" -> "GoldStack/ComputeKpi" [
+    dir = "both";
+  ];
+  "NotificationStack/ComputeKpiErrorAlarm" -> "NotificationStack/LambdaFailureTopic" [
+    dir = "both";
+  ];
+  "NotificationStack/GoldToPostgresErrorAlarm" -> "ServingStack/GoldToPostgres" [
+    dir = "both";
+  ];
+  "NotificationStack/GoldToPostgresErrorAlarm" -> "NotificationStack/LambdaFailureTopic" [
+    dir = "both";
+  ];
+  "StepFuncStack/Pipeline" -> "IngestionStack/HackerNewsIngest" [
+    dir = "both";
+  ];
+  "StepFuncStack/Pipeline" -> "NormalizationStack/HackerNewsNormalize" [
+    dir = "both";
+  ];
+  "StepFuncStack/Pipeline" -> "GoldStack/ComputeMetrics" [
+    dir = "both";
+  ];
+  "StepFuncStack/Pipeline" -> "GoldStack/ComputeKpi" [
+    dir = "both";
+  ];
+  "StepFuncStack/Pipeline" -> "ServingStack/GoldToPostgres" [
+    dir = "both";
+  ];
+  "StepFuncStack/DailySchedule" -> "StepFuncStack/Pipeline" [
+    dir = "both";
+  ];
+  "StepFuncStack/PipelineFailedAlarm" -> "NotificationStack/LambdaFailureTopic" [
+    dir = "both";
+  ];
+  "StepFuncStack/PipelineFailedAlarm" -> "StepFuncStack/Pipeline" [
+    dir = "both";
+  ];
+}
